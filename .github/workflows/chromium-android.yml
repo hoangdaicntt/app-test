@@ -1,0 +1,89 @@
+name: Chromium Android ARM64
+run-name: ADB Browser ARM64 · ${{ github.sha }}
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chromium-android-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/android'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      CHROMIUM_JOBS: '2'
+      DEPOT_TOOLS_UPDATE: '0'
+      DEPOT_TOOLS_METRICS: '0'
+    steps:
+      - name: Measure and reclaim ephemeral runner disk
+        shell: bash
+        run: |
+          echo 'Resources before cleanup'
+          nproc
+          free -h
+          df -h
+          # This VM is discarded after the job. Chromium downloads its own SDK.
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache
+          sudo docker image prune -af
+          sudo apt-get clean
+          echo 'Resources after cleanup'
+          df -h
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends imagemagick
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          clean: false # Keep only the dedicated ignored Chromium cache between jobs.
+      - name: Configure revision and GN keyed source/output cache
+        shell: bash
+        env:
+          CACHE_KEY: ${{ hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**') }}
+        run: |
+          echo "CHROMIUM_WORK_ROOT=$GITHUB_WORKSPACE/.chromium-cache/arm64-$CACHE_KEY" >> "$GITHUB_ENV"
+          mkdir -p chromium/artifacts
+          # Never publish artifacts from a previous invocation.
+          find chromium/artifacts -maxdepth 1 -type f -delete
+      - name: Check runner resources
+        shell: bash
+        run: scripts/chromium/preflight.sh "$CHROMIUM_WORK_ROOT" 2>&1 | tee chromium/artifacts/resources.log
+      - name: Fetch pinned Chromium and install build dependencies
+        shell: bash
+        run: scripts/chromium/setup.sh 2>&1 | tee chromium/artifacts/setup.log
+      - name: Apply guarded branding
+        shell: bash
+        run: scripts/chromium/apply-branding.sh 2>&1 | tee chromium/artifacts/branding.log
+      - name: Compile and verify APK
+        shell: bash
+        run: scripts/chromium/build.sh
+      - name: Upload verified APK and metadata
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: adb-browser-arm64-${{ github.sha }}
+          path: |
+            chromium/artifacts/ADB-Browser-arm64.apk
+            chromium/artifacts/SHA256SUMS
+            chromium/artifacts/metadata.json
+            chromium/artifacts/args.gn
+            chromium/artifacts/badging.txt
+            chromium/artifacts/manifest.txt
+            chromium/artifacts/signature.txt
+            chromium/artifacts/launcher-foreground.png
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: chromium-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: chromium/artifacts/*.log
+          if-no-files-found: warn
+          retention-days: 14

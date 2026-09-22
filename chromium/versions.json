@@ -1,0 +1,11 @@
+{
+  "chromium_version": "154.0.8037.49",
+  "chromium_revision": "ba187acfd59909f7d8d4fe0b5e9faa3a71ff0e92",
+  "depot_tools_revision": "55a39e603bee1ad299545508bc96e2a5d29d3cc4",
+  "package": "com.adblock.browser.vn",
+  "label": "ADB Browser",
+  "version_name": "3.0.0",
+  "version_code": "410101511",
+  "target": "chrome_public_apk",
+  "signing_mode": "upstream Chromium public test key; not production"
+}

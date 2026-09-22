@@ -1,0 +1,10 @@
+target_os = "android"
+target_cpu = "arm64"
+is_debug = false
+is_component_build = false
+is_chrome_branded = false
+use_remoteexec = false
+symbol_level = 0
+chrome_public_manifest_package = "com.adblock.browser.vn"
+android_override_version_name = "3.0.0"
+android_override_version_code = "410101511"
