@@ -1,0 +1,40 @@
+name: Prepare pinned Chromium checkout
+description: Reclaim runner disk, fetch pinned Chromium, and apply guarded branding.
+
+inputs:
+  config-hash:
+    description: Hash of all inputs that affect the Chromium output directory.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Reclaim ephemeral runner disk
+      shell: bash
+      run: |
+        nproc
+        free -h
+        df -h
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache
+        sudo docker image prune -af
+        sudo apt-get clean
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends imagemagick zstd
+        df -h
+    - name: Configure pinned build path
+      shell: bash
+      env:
+        CONFIG_HASH: ${{ inputs.config-hash }}
+      run: |
+        echo "CHROMIUM_WORK_ROOT=$GITHUB_WORKSPACE/.chromium-cache/arm64-$CONFIG_HASH" >> "$GITHUB_ENV"
+        mkdir -p chromium/artifacts chromium/checkpoint
+        find chromium/artifacts -maxdepth 1 -type f -delete
+    - name: Check runner resources
+      shell: bash
+      run: scripts/chromium/preflight.sh "$GITHUB_WORKSPACE/.chromium-cache/arm64-${{ inputs.config-hash }}" 2>&1 | tee chromium/artifacts/resources.log
+    - name: Fetch pinned Chromium and install build dependencies
+      shell: bash
+      run: scripts/chromium/setup.sh 2>&1 | tee chromium/artifacts/setup.log
+    - name: Apply guarded branding
+      shell: bash
+      run: scripts/chromium/apply-branding.sh 2>&1 | tee chromium/artifacts/branding.log

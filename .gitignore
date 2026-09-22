@@ -1,3 +1,4 @@
 .chromium-cache/
 chromium/artifacts/
+chromium/checkpoint/
 __pycache__/

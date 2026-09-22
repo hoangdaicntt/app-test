@@ -1,5 +1,5 @@
 name: Chromium Android ARM64
-run-name: ADB Browser ARM64 · ${{ inputs.compile_jobs }} compile jobs · ${{ github.sha }}
+run-name: ADB Browser ARM64 · checkpointed · ${{ inputs.compile_jobs }} jobs · ${{ github.sha }}
 
 on:
   workflow_dispatch:
@@ -12,14 +12,150 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 concurrency:
-  group: chromium-android-${{ github.ref }}-${{ inputs.compile_jobs }}
+  group: chromium-android-checkpointed-${{ github.ref }}-${{ inputs.compile_jobs }}
   cancel-in-progress: false
 
 jobs:
-  build:
+  checkpoint-1:
     if: github.ref == 'refs/heads/android'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      CHROMIUM_JOBS: ${{ inputs.compile_jobs }}
+      CHECKPOINT_MINUTES: '225'
+      DEPOT_TOOLS_UPDATE: '0'
+      DEPOT_TOOLS_METRICS: '0'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/prepare-chromium
+        with:
+          config-hash: ${{ hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**') }}
+      - name: Compile to checkpoint 1
+        shell: bash
+        run: scripts/chromium/checkpoint-build.sh
+      - name: Save checkpoint 1
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: chromium/checkpoint/out-ADBAndroid.tar.zst
+          key: adb-chromium-${{ runner.os }}-${{ hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**') }}-${{ github.run_id }}-stage-1
+      - name: Upload checkpoint 1 diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: chromium-logs-${{ github.run_id }}-${{ github.run_attempt }}-checkpoint-1
+          path: chromium/artifacts/*.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  checkpoint-2:
+    needs: checkpoint-1
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      CHROMIUM_JOBS: ${{ inputs.compile_jobs }}
+      CHECKPOINT_MINUTES: '225'
+      DEPOT_TOOLS_UPDATE: '0'
+      DEPOT_TOOLS_METRICS: '0'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/prepare-chromium
+        with:
+          config-hash: ${{ hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**') }}
+      - name: Restore checkpoint 1 cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: chromium/checkpoint/out-ADBAndroid.tar.zst
+          key: adb-chromium-${{ runner.os }}-${{ hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**') }}-${{ github.run_id }}-stage-1
+          fail-on-cache-miss: true
+      - name: Extract checkpoint 1
+        shell: bash
+        run: scripts/chromium/restore-checkpoint.sh 2>&1 | tee chromium/artifacts/restore.log
+      - name: Compile to checkpoint 2
+        shell: bash
+        run: scripts/chromium/checkpoint-build.sh
+      - name: Save checkpoint 2
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: chromium/checkpoint/out-ADBAndroid.tar.zst
+          key: adb-chromium-${{ runner.os }}-${{ hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**') }}-${{ github.run_id }}-stage-2
+      - name: Delete superseded checkpoint 1
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OLD_CACHE_KEY: adb-chromium-${{ runner.os }}-${{ hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**') }}-${{ github.run_id }}-stage-1
+        run: gh cache delete "$OLD_CACHE_KEY" --repo "$GITHUB_REPOSITORY" --confirm
+      - name: Upload checkpoint 2 diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: chromium-logs-${{ github.run_id }}-${{ github.run_attempt }}-checkpoint-2
+          path: chromium/artifacts/*.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  checkpoint-3:
+    needs: checkpoint-2
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      CHROMIUM_JOBS: ${{ inputs.compile_jobs }}
+      CHECKPOINT_MINUTES: '225'
+      DEPOT_TOOLS_UPDATE: '0'
+      DEPOT_TOOLS_METRICS: '0'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/prepare-chromium
+        with:
+          config-hash: ${{ hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**') }}
+      - name: Restore checkpoint 2 cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: chromium/checkpoint/out-ADBAndroid.tar.zst
+          key: adb-chromium-${{ runner.os }}-${{ hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**') }}-${{ github.run_id }}-stage-2
+          fail-on-cache-miss: true
+      - name: Extract checkpoint 2
+        shell: bash
+        run: scripts/chromium/restore-checkpoint.sh 2>&1 | tee chromium/artifacts/restore.log
+      - name: Compile to checkpoint 3
+        shell: bash
+        run: scripts/chromium/checkpoint-build.sh
+      - name: Save checkpoint 3
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: chromium/checkpoint/out-ADBAndroid.tar.zst
+          key: adb-chromium-${{ runner.os }}-${{ hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**') }}-${{ github.run_id }}-stage-3
+      - name: Delete superseded checkpoint 2
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OLD_CACHE_KEY: adb-chromium-${{ runner.os }}-${{ hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**') }}-${{ github.run_id }}-stage-2
+        run: gh cache delete "$OLD_CACHE_KEY" --repo "$GITHUB_REPOSITORY" --confirm
+      - name: Upload checkpoint 3 diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: chromium-logs-${{ github.run_id }}-${{ github.run_attempt }}-checkpoint-3
+          path: chromium/artifacts/*.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  build-and-verify:
+    needs: checkpoint-3
     runs-on: ubuntu-22.04
     timeout-minutes: 360
     env:
@@ -28,49 +164,26 @@ jobs:
       DEPOT_TOOLS_UPDATE: '0'
       DEPOT_TOOLS_METRICS: '0'
     steps:
-      - name: Measure and reclaim ephemeral runner disk
-        shell: bash
-        run: |
-          echo 'Resources before cleanup'
-          nproc
-          free -h
-          df -h
-          # This VM is discarded after the job. Chromium downloads its own SDK.
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache
-          sudo docker image prune -af
-          sudo apt-get clean
-          echo 'Resources after cleanup'
-          df -h
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends imagemagick
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-          clean: false # Keep only the dedicated ignored Chromium cache between jobs.
-      - name: Configure revision and GN keyed source/output cache
+      - uses: ./.github/actions/prepare-chromium
+        with:
+          config-hash: ${{ hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**') }}
+      - name: Restore checkpoint 3 cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: chromium/checkpoint/out-ADBAndroid.tar.zst
+          key: adb-chromium-${{ runner.os }}-${{ hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**') }}-${{ github.run_id }}-stage-3
+          fail-on-cache-miss: true
+      - name: Extract checkpoint 3
         shell: bash
-        env:
-          CACHE_KEY: ${{ hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**') }}
-        run: |
-          echo "CHROMIUM_WORK_ROOT=$GITHUB_WORKSPACE/.chromium-cache/arm64-$CACHE_KEY" >> "$GITHUB_ENV"
-          mkdir -p chromium/artifacts
-          # Never publish artifacts from a previous invocation.
-          find chromium/artifacts -maxdepth 1 -type f -delete
-      - name: Check runner resources
-        shell: bash
-        run: scripts/chromium/preflight.sh "$CHROMIUM_WORK_ROOT" 2>&1 | tee chromium/artifacts/resources.log
-      - name: Fetch pinned Chromium and install build dependencies
-        shell: bash
-        run: scripts/chromium/setup.sh 2>&1 | tee chromium/artifacts/setup.log
-      - name: Apply guarded branding
-        shell: bash
-        run: scripts/chromium/apply-branding.sh 2>&1 | tee chromium/artifacts/branding.log
-      - name: Compile and verify APK
+        run: scripts/chromium/restore-checkpoint.sh 2>&1 | tee chromium/artifacts/restore.log
+      - name: Finish compile and verify APK
         shell: bash
         run: scripts/chromium/build.sh
       - name: Upload verified APK and metadata
-        if: success()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: adb-browser-arm64-${{ github.sha }}
@@ -96,11 +209,11 @@ jobs:
             chromium/artifacts/manifest.txt
           if-no-files-found: ignore
           retention-days: 7
-      - name: Upload build diagnostics
+      - name: Upload final build diagnostics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: chromium-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          name: chromium-logs-${{ github.run_id }}-${{ github.run_attempt }}-final
           path: chromium/artifacts/*.log
           if-no-files-found: warn
           retention-days: 14

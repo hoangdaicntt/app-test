@@ -10,9 +10,12 @@ label `ADB Browser`. Source and depot_tools commits are pinned in
 This experiment runs on the standard public GitHub Ubuntu 22.04 runner. It
 measures resources, removes unused preinstalled SDKs from the ephemeral VM,
 and attempts a build even below upstream's 100 GB free-space guidance.
-Compilation defaults to four jobs to use the runner CPU capacity; two jobs remain
-available as a comparison. The job timeout is six hours. Memory and disk
-usage are sampled every minute and included in build diagnostics.
+Compilation defaults to four jobs and is split across three controlled
+checkpoints before a final packaging job. Each checkpoint stops before the
+six-hour hosted-job limit, compresses `out/ADBAndroid`, and restores it in the
+next job. A checkpoint larger than 9.5 GB is rejected instead of increasing the
+repository's free 10 GB cache limit. Memory, disk and output size are sampled
+every minute and included in build diagnostics.
 No successful build or runtime test is claimed until artifacts are available.
 
 Dispatch `chromium-android.yml` on the default `android` branch with gh.
