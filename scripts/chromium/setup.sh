@@ -7,6 +7,8 @@ if [[ ! -d "$CHROMIUM_WORK_ROOT/depot_tools/.git" ]]; then
 fi
 git -C "$CHROMIUM_WORK_ROOT/depot_tools" fetch origin "$(pin depot_tools_revision)"
 git -C "$CHROMIUM_WORK_ROOT/depot_tools" checkout --detach "$(pin depot_tools_revision)"
+# DEPOT_TOOLS_UPDATE=0 requires explicit bootstrap on a fresh checkout.
+"$CHROMIUM_WORK_ROOT/depot_tools/ensure_bootstrap"
 mkdir -p "$CHROMIUM_WORK_ROOT/checkout"
 cd "$CHROMIUM_WORK_ROOT/checkout"
 if [[ ! -e .gclient ]]; then
