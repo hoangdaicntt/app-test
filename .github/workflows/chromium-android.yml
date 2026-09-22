@@ -79,6 +79,17 @@ jobs:
             chromium/artifacts/launcher-foreground.png
           if-no-files-found: error
           retention-days: 14
+      - name: Preserve APK for diagnosis if verification fails
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: unverified-apk-${{ github.sha }}
+          path: |
+            chromium/artifacts/ADB-Browser-arm64.apk
+            chromium/artifacts/badging.txt
+            chromium/artifacts/manifest.txt
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload build diagnostics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

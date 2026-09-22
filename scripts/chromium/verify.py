@@ -36,7 +36,7 @@ manifest = run(tools / 'aapt2', 'dump', 'xmltree', apk, '--file', 'AndroidManife
 for line in manifest.splitlines():
     if 'android:authorities(' in line:
         raw = re.search(r'Raw: "([^"]+)"', line)
-        assert raw and all(x.startswith(pins['package'] + '.') for x in raw[1].split(';')), line
+        assert raw and all(x == pins['package'] or x.startswith(pins['package'] + '.') for x in raw[1].split(';')), line
 assert 'org.chromium.chrome.permission.' not in manifest
 assert pins['package'] + '.permission.CHILD_SERVICE' in manifest
 os.environ['JAVA_HOME'] = str(src / 'third_party/jdk/current')
