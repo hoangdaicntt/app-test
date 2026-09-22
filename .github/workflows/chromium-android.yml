@@ -1,14 +1,20 @@
 name: Chromium Android ARM64
-run-name: ADB Browser ARM64 · ${{ github.sha }}
+run-name: ADB Browser ARM64 · ${{ inputs.compile_jobs }} compile jobs · ${{ github.sha }}
 
 on:
   workflow_dispatch:
+    inputs:
+      compile_jobs:
+        description: Number of concurrent compile jobs
+        type: choice
+        default: '4'
+        options: ['4', '2']
 
 permissions:
   contents: read
 
 concurrency:
-  group: chromium-android-${{ github.ref }}
+  group: chromium-android-${{ github.ref }}-${{ inputs.compile_jobs }}
   cancel-in-progress: false
 
 jobs:
@@ -18,7 +24,7 @@ jobs:
     timeout-minutes: 360
     env:
       DEBIAN_FRONTEND: noninteractive
-      CHROMIUM_JOBS: '2'
+      CHROMIUM_JOBS: ${{ inputs.compile_jobs }}
       DEPOT_TOOLS_UPDATE: '0'
       DEPOT_TOOLS_METRICS: '0'
     steps:
