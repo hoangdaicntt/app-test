@@ -16,6 +16,8 @@ six-hour hosted-job limit, compresses `out/ADBAndroid`, and restores it in the
 next job. A checkpoint larger than 9.5 GB is rejected instead of increasing the
 repository's free 10 GB cache limit. Memory, disk and output size are sampled
 every minute and included in build diagnostics.
+An exact checkpoint cache key can be supplied when dispatching to resume after
+a workflow or source-network failure without repeating checkpoint 1.
 No successful build or runtime test is claimed until artifacts are available.
 
 Dispatch `chromium-android.yml` on the default `android` branch with gh.

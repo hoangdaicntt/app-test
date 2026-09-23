@@ -23,6 +23,15 @@ trap 'kill "$resource_monitor_pid" 2>/dev/null || true' EXIT
 
 gn gen out/ADBAndroid --fail-on-unused-args 2>&1 | tee "$ARTIFACT_DIR/gn.log"
 
+# A fresh hosted runner gives the identical source tree new mtimes. Mark only
+# outputs from an exact-key checkpoint newer after GN has refreshed the graph,
+# otherwise Ninja rebuilds completed actions despite identical content.
+if [[ -f out/ADBAndroid/.checkpoint-restored ]]; then
+  find out/ADBAndroid -type f ! -name .checkpoint-restored -exec touch {} +
+  rm out/ADBAndroid/.checkpoint-restored
+  echo "Refreshed restored output timestamps." | tee "$ARTIFACT_DIR/checkpoint-restore.log"
+fi
+
 set +e
 timeout --signal=INT --kill-after=5m "${CHECKPOINT_MINUTES}m" \
   autoninja -C out/ADBAndroid -j "${CHROMIUM_JOBS:-$(nproc)}" chrome_public_apk \

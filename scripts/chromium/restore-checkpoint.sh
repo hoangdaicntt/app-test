@@ -10,4 +10,5 @@ echo "Restoring checkpoint ($archive_bytes bytes)"
 tar -C "$CHROMIUM_SRC" -I 'zstd -T0' -xf "$CHECKPOINT_ARCHIVE"
 rm -f "$CHECKPOINT_ARCHIVE"
 [[ -f "$CHROMIUM_SRC/out/ADBAndroid/args.gn" ]]
+touch "$CHROMIUM_SRC/out/ADBAndroid/.checkpoint-restored"
 du -sh "$CHROMIUM_SRC/out/ADBAndroid"
