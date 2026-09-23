@@ -14,6 +14,11 @@ on:
         type: string
         required: false
         default: ''
+      resume_checkpoint_2_key:
+        description: Exact stage-2 cache key to resume directly at checkpoint 3
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -25,7 +30,7 @@ concurrency:
 
 jobs:
   checkpoint-1:
-    if: github.ref == 'refs/heads/android' && inputs.resume_checkpoint_key == ''
+    if: github.ref == 'refs/heads/android' && inputs.resume_checkpoint_key == '' && inputs.resume_checkpoint_2_key == ''
     runs-on: ubuntu-22.04
     timeout-minutes: 360
     env:
@@ -61,7 +66,7 @@ jobs:
 
   checkpoint-2:
     needs: checkpoint-1
-    if: always() && github.ref == 'refs/heads/android' && (needs.checkpoint-1.result == 'success' || (needs.checkpoint-1.result == 'skipped' && inputs.resume_checkpoint_key != ''))
+    if: always() && github.ref == 'refs/heads/android' && inputs.resume_checkpoint_2_key == '' && (needs.checkpoint-1.result == 'success' || (needs.checkpoint-1.result == 'skipped' && inputs.resume_checkpoint_key != ''))
     runs-on: ubuntu-22.04
     timeout-minutes: 360
     env:
@@ -96,11 +101,12 @@ jobs:
           path: chromium/checkpoint/out-ADBAndroid.tar.zst
           key: adb-chromium-${{ runner.os }}-${{ hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**') }}-${{ github.run_id }}-stage-2
       - name: Delete superseded checkpoint 1
+        continue-on-error: true
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           OLD_CACHE_KEY: ${{ inputs.resume_checkpoint_key || format('adb-chromium-{0}-{1}-{2}-stage-1', runner.os, hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**'), github.run_id) }}
-        run: gh cache delete "$OLD_CACHE_KEY" --repo "$GITHUB_REPOSITORY" --confirm
+        run: gh cache delete "$OLD_CACHE_KEY" --repo "$GITHUB_REPOSITORY"
       - name: Upload checkpoint 2 diagnostics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -112,6 +118,7 @@ jobs:
 
   checkpoint-3:
     needs: checkpoint-2
+    if: always() && github.ref == 'refs/heads/android' && (needs.checkpoint-2.result == 'success' || (needs.checkpoint-2.result == 'skipped' && inputs.resume_checkpoint_2_key != ''))
     runs-on: ubuntu-22.04
     timeout-minutes: 360
     env:
@@ -132,7 +139,7 @@ jobs:
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: chromium/checkpoint/out-ADBAndroid.tar.zst
-          key: adb-chromium-${{ runner.os }}-${{ hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**') }}-${{ github.run_id }}-stage-2
+          key: ${{ inputs.resume_checkpoint_2_key || format('adb-chromium-{0}-{1}-{2}-stage-2', runner.os, hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**'), github.run_id) }}
           fail-on-cache-miss: true
       - name: Extract checkpoint 2
         shell: bash
@@ -146,11 +153,12 @@ jobs:
           path: chromium/checkpoint/out-ADBAndroid.tar.zst
           key: adb-chromium-${{ runner.os }}-${{ hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**') }}-${{ github.run_id }}-stage-3
       - name: Delete superseded checkpoint 2
+        continue-on-error: true
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          OLD_CACHE_KEY: adb-chromium-${{ runner.os }}-${{ hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**') }}-${{ github.run_id }}-stage-2
-        run: gh cache delete "$OLD_CACHE_KEY" --repo "$GITHUB_REPOSITORY" --confirm
+          OLD_CACHE_KEY: ${{ inputs.resume_checkpoint_2_key || format('adb-chromium-{0}-{1}-{2}-stage-2', runner.os, hashFiles('chromium/versions.json', 'chromium/args.gn', 'chromium/branding/**', 'scripts/chromium/**'), github.run_id) }}
+        run: gh cache delete "$OLD_CACHE_KEY" --repo "$GITHUB_REPOSITORY"
       - name: Upload checkpoint 3 diagnostics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
