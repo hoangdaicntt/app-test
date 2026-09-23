@@ -38,7 +38,8 @@ if [[ ! -e .gclient ]]; then
       "custom_vars": {},
     },
   ]
-  target_os = ["android"]'
+target_os = ["android"]'
+  python3 -m py_compile .gclient
 fi
 retry gclient sync --nohooks --no-history --revision "src@$(pin chromium_revision)"
 cd "$CHROMIUM_SRC"
